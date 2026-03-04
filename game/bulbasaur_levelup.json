@@ -1,0 +1,17 @@
+[
+  {"level": 1, "move": "Tackle"},
+  {"level": 2, "move": "Growl"},
+  {"level": 7, "move": "Leech Seed"},
+  {"level": 9, "move": "Vine Whip"},
+  {"level": 14, "move": "Poison Powder"},
+  {"level": 16, "move": "Sleep Powder"},
+  {"level": 17, "move": "Take Down"},
+  {"level": 19, "move": "Razor Leaf"},
+  {"level": 22, "move": "Sweet Scent"},
+  {"level": 23, "move": "Growth"},
+  {"level": 29, "move": "Double-Edge"},
+  {"level": 30, "move": "Worry Seed"},
+  {"level": 30, "move": "Seed Bomb"},
+  {"level": 33, "move": "Synthesis"},
+  {"level": 42, "move": "Solar Beam"}
+]

@@ -1,0 +1,22 @@
+services:
+  - type: worker
+    name: pffpkm-discord-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: AUTO_SYNC_COMMANDS
+        value: "false"
+      - key: COMMAND_SCOPE
+        value: global
+      - key: CLEAN_OTHER_SCOPE
+        value: "false"
+      # Set this in Render dashboard (required)
+      - key: DISCORD_TOKEN
+        sync: false
+      # Optional override if your data folder is at custom path
+      # - key: POKEMON_DATA_ROOT
+      #   value: /opt/render/project/src/pokemon-data.json-master
