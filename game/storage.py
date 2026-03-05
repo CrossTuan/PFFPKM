@@ -97,9 +97,20 @@ class MongoPlayerStore:
 
 
 def create_player_store(file_path: Path):
+    mongo_enabled = os.getenv("MONGODB_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+    if not mongo_enabled:
+        return PlayerStore(file_path)
+
     mongo_uri = os.getenv("MONGODB_URI", "").strip()
     if mongo_uri:
         db_name = os.getenv("MONGODB_DB", "pffpkm").strip() or "pffpkm"
         collection_name = os.getenv("MONGODB_COLLECTION", "players").strip() or "players"
-        return MongoPlayerStore(mongo_uri, db_name=db_name, collection_name=collection_name)
+        try:
+            return MongoPlayerStore(mongo_uri, db_name=db_name, collection_name=collection_name)
+        except Exception as exc:
+            print(
+                "[storage] Failed to connect to MongoDB "
+                f"({exc.__class__.__name__}: {exc}). "
+                f"Falling back to local JSON store at {file_path}."
+            )
     return PlayerStore(file_path)

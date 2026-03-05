@@ -15,6 +15,10 @@ services:
         value: global
       - key: CLEAN_OTHER_SCOPE
         value: "false"
+      # Keep local JSON storage by default on free web plan.
+      # Set true only after MongoDB Atlas is verified.
+      - key: MONGODB_ENABLED
+        value: "false"
       # Set this in Render dashboard (required)
       - key: DISCORD_TOKEN
         sync: false
