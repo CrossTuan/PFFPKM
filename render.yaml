@@ -18,6 +18,9 @@ services:
       # Set this in Render dashboard (required)
       - key: DISCORD_TOKEN
         sync: false
+      # Optional: set this to a persistent disk path, e.g. /var/data/players.json
+      # - key: PLAYER_DATA_PATH
+      #   value: /var/data/players.json
       # Optional override if your data folder is at custom path
       # - key: POKEMON_DATA_ROOT
       #   value: /opt/render/project/src/pokemon-data.json-master

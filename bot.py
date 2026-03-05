@@ -28,12 +28,24 @@ from game.logic import (
     recalculate_pokemon_stats,
 )
 from game.move_effects import get_default_target, get_move_priority
-from game.storage import PlayerStore
+from game.storage import create_player_store
 from keep_alive import start_keep_alive
 
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
+
+
+def _resolve_player_store_path() -> Path:
+    env_path = os.getenv("PLAYER_DATA_PATH", "").strip()
+    if env_path:
+        return Path(env_path)
+
+    var_data_dir = Path("/var/data")
+    if var_data_dir.exists() and var_data_dir.is_dir():
+        return var_data_dir / "players.json"
+
+    return ROOT / "data" / "players.json"
 
 
 class PokemonDiscordBot(commands.Bot):
@@ -43,7 +55,7 @@ class PokemonDiscordBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
         self.game_data = GameData(ROOT)
-        self.store = PlayerStore(ROOT / "data" / "players.json")
+        self.store = create_player_store(_resolve_player_store_path())
         self.players: dict[int, PlayerProfile] = {}
         self.active_battles: dict[int, Battle] = {}
         self.gym_battle_meta: dict[int, dict[str, int]] = {}
@@ -1748,15 +1760,17 @@ class BattleView(discord.ui.View):
                 await interaction.response.send_message("Không có trận đấu đang diễn ra.", ephemeral=True)
                 return
 
+            await interaction.response.defer()
+
             result = battle.run_turn(move_index)
             await asyncio.to_thread(bot.save_player, interaction.user.id)
 
             embed = battle_status_embed(battle.player, battle, title="Diễn biến lượt", turn_text=result.text)
             if result.battle_over:
                 bot.active_battles.pop(interaction.user.id, None)
-                await interaction.response.edit_message(embed=embed, view=None)
+                await interaction.edit_original_response(embed=embed, view=None)
             else:
-                await interaction.response.edit_message(embed=embed, view=BattleView(interaction.user.id))
+                await interaction.edit_original_response(embed=embed, view=BattleView(interaction.user.id))
 
         return callback
 
@@ -1767,15 +1781,17 @@ class BattleView(discord.ui.View):
                 await interaction.response.send_message("Không có trận đấu đang diễn ra.", ephemeral=True)
                 return
 
+            await interaction.response.defer()
+
             result = battle.run_turn(-1)
             await asyncio.to_thread(bot.save_player, interaction.user.id)
 
             embed = battle_status_embed(battle.player, battle, title="Diễn biến lượt", turn_text=result.text)
             if result.battle_over:
                 bot.active_battles.pop(interaction.user.id, None)
-                await interaction.response.edit_message(embed=embed, view=None)
+                await interaction.edit_original_response(embed=embed, view=None)
             else:
-                await interaction.response.edit_message(embed=embed, view=BattleView(interaction.user.id))
+                await interaction.edit_original_response(embed=embed, view=BattleView(interaction.user.id))
 
         return callback
 
@@ -2051,6 +2067,12 @@ class GymProgressChoiceView(discord.ui.View):
 
 
 async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any) -> None:
+    async def _edit(**kwargs):
+        if interaction.response.is_done():
+            await interaction.edit_original_response(**kwargs)
+        else:
+            await interaction.response.edit_message(**kwargs)
+
     user_id = interaction.user.id
     battle = bot.active_battles.get(user_id)
     profile = bot.get_player(user_id)
@@ -2058,7 +2080,7 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
     meta = bot.gym_battle_meta.get(user_id)
 
     if battle is None or run is None or meta is None:
-        await interaction.response.edit_message(
+        await _edit(
             embed=discord.Embed(title="Gym", description="Không tìm thấy trạng thái gym hiện tại.", color=discord.Color.red()),
             view=None,
         )
@@ -2066,7 +2088,7 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
 
     if not result.battle_over:
         embed = battle_status_embed(profile, battle, title="Gym Battle", turn_text=result.text)
-        await interaction.response.edit_message(embed=embed, view=GymBattleView(user_id))
+        await _edit(embed=embed, view=GymBattleView(user_id))
         return
 
     bot.active_battles.pop(user_id, None)
@@ -2076,7 +2098,7 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
     if all_fainted:
         profile.gym_run = None
         await asyncio.to_thread(bot.save_player, user_id)
-        await interaction.response.edit_message(
+        await _edit(
             embed=discord.Embed(
                 title="Thất bại trong Gym",
                 description=f"{result.text}\n\nTiến trình gym đã reset vì bạn thua trận.",
@@ -2094,7 +2116,7 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
         reward_lines = _grant_gym_clear_rewards(profile, run)
         profile.gym_run = None
         await asyncio.to_thread(bot.save_player, user_id)
-        await interaction.response.edit_message(
+        await _edit(
             embed=discord.Embed(
                 title="Hoàn thành Gym thành công",
                 description=result.text + "\n\n" + "\n".join(reward_lines),
@@ -2117,7 +2139,7 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
     if trainer_boundary:
         run["awaiting_choice"] = True
         await asyncio.to_thread(bot.save_player, user_id)
-        await interaction.response.edit_message(
+        await _edit(
             embed=discord.Embed(
                 title="Đã thắng Trainer trong Gym",
                 description=result.text + "\n\nChọn **Tiếp tục** hoặc **Tạm thời rút lui**.",
@@ -2131,13 +2153,13 @@ async def _handle_gym_turn_result(interaction: discord.Interaction, result: Any)
     queued = _queue_next_gym_battle(user_id, intro_text=result.text + "\n\nTiếp tục trận kế tiếp trong cùng lượt gym.")
     await asyncio.to_thread(bot.save_player, user_id)
     if queued is None:
-        await interaction.response.edit_message(
+        await _edit(
             embed=discord.Embed(title="Gym", description="Không thể tạo trận tiếp theo.", color=discord.Color.red()),
             view=None,
         )
         return
     embed, view = queued
-    await interaction.response.edit_message(embed=embed, view=view)
+    await _edit(embed=embed, view=view)
 
 
 class GymBattleView(discord.ui.View):
@@ -2188,6 +2210,7 @@ class GymBattleView(discord.ui.View):
             if not battle:
                 await interaction.response.send_message("Không có trận gym đang diễn ra.", ephemeral=True)
                 return
+            await interaction.response.defer()
             result = battle.run_turn(move_index)
             await _handle_gym_turn_result(interaction, result)
         return callback
@@ -2198,6 +2221,7 @@ class GymBattleView(discord.ui.View):
             if not battle:
                 await interaction.response.send_message("Không có trận gym đang diễn ra.", ephemeral=True)
                 return
+            await interaction.response.defer()
             result = battle.run_turn(-1)
             await _handle_gym_turn_result(interaction, result)
         return callback

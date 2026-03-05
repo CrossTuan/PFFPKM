@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from .logic import PlayerProfile
@@ -47,3 +48,58 @@ class PlayerStore:
             self._cache = self._read_raw()
         self._cache[str(profile.user_id)] = profile.to_dict()
         self._write_raw(self._cache)
+
+
+class MongoPlayerStore:
+    def __init__(self, uri: str, db_name: str, collection_name: str):
+        from pymongo import MongoClient
+
+        self.client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+        self.collection = self.client[db_name][collection_name]
+        self.client.admin.command("ping")
+
+    def load_all(self) -> dict[int, PlayerProfile]:
+        players: dict[int, PlayerProfile] = {}
+        for doc in self.collection.find({}):
+            payload = dict(doc)
+            uid_raw = payload.get("user_id", payload.get("_id"))
+            if uid_raw is None:
+                continue
+            try:
+                uid = int(uid_raw)
+            except (TypeError, ValueError):
+                continue
+
+            payload.pop("_id", None)
+            payload["user_id"] = uid
+            players[uid] = PlayerProfile.from_dict(payload)
+        return players
+
+    def save_all(self, players: dict[int, PlayerProfile]) -> None:
+        for uid, profile in players.items():
+            payload = profile.to_dict()
+            payload["user_id"] = int(uid)
+            self.collection.replace_one(
+                {"_id": int(uid)},
+                {"_id": int(uid), **payload},
+                upsert=True,
+            )
+
+    def save_player(self, profile: PlayerProfile) -> None:
+        uid = int(profile.user_id)
+        payload = profile.to_dict()
+        payload["user_id"] = uid
+        self.collection.replace_one(
+            {"_id": uid},
+            {"_id": uid, **payload},
+            upsert=True,
+        )
+
+
+def create_player_store(file_path: Path):
+    mongo_uri = os.getenv("MONGODB_URI", "").strip()
+    if mongo_uri:
+        db_name = os.getenv("MONGODB_DB", "pffpkm").strip() or "pffpkm"
+        collection_name = os.getenv("MONGODB_COLLECTION", "players").strip() or "players"
+        return MongoPlayerStore(mongo_uri, db_name=db_name, collection_name=collection_name)
+    return PlayerStore(file_path)

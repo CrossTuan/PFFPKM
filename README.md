@@ -94,6 +94,18 @@ Project đã có sẵn file [render.yaml](render.yaml) để deploy bot trên Re
 - Bắt buộc: `DISCORD_TOKEN`.
 - Tuỳ chọn nếu data đặt custom path: `POKEMON_DATA_ROOT`.
 
+### Lưu dữ liệu trên Render Free (không có Disk)
+
+Nếu không dùng Persistent Disk, dữ liệu file local có thể mất sau deploy/restart.
+Để lưu vĩnh viễn, dùng MongoDB Atlas (free tier):
+
+- Set các env trên Render:
+  - `MONGODB_URI`
+  - `MONGODB_DB` (ví dụ `pffpkm`)
+  - `MONGODB_COLLECTION` (ví dụ `players`)
+
+Khi `MONGODB_URI` được set, bot sẽ tự động lưu player vào MongoDB thay vì `data/players.json`.
+
 ### 4) Deploy
 
 - Bấm Deploy, chờ build xong.
