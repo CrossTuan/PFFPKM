@@ -29,6 +29,7 @@ from game.logic import (
 )
 from game.move_effects import get_default_target, get_move_priority
 from game.storage import PlayerStore
+from keep_alive import start_keep_alive
 
 
 ROOT = Path(__file__).resolve().parent
@@ -3403,6 +3404,8 @@ def main() -> None:
     token = os.getenv("DISCORD_TOKEN")
     if not token:
         raise RuntimeError("Thiếu DISCORD_TOKEN trong file .env")
+
+    start_keep_alive()
     bot.run(token)
 
 
