@@ -3025,6 +3025,7 @@ async def inv_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="center", description="Hồi đầy HP toàn bộ Pokémon trong party")
 async def center_command(interaction: discord.Interaction):
+    DAILY_CENTER_LIMIT = 50
     profile = bot.get_player(interaction.user.id)
     if not ensure_started(profile):
         await interaction.response.send_message("Bạn cần dùng `/start` trước.", ephemeral=True)
@@ -3040,20 +3041,36 @@ async def center_command(interaction: discord.Interaction):
         await interaction.response.send_message("Bạn đang tham gia gym, không thể dùng Center lúc này. Hãy tạm rút lui bằng `/gym`.", ephemeral=True)
         return
 
+    now = time.localtime()
+    today_key = f"{now.tm_year:04d}-{now.tm_mon:02d}-{now.tm_mday:02d}"
+    if profile.center_uses_date != today_key:
+        profile.center_uses_date = today_key
+        profile.center_uses_count = 0
+
+    if profile.center_uses_count >= DAILY_CENTER_LIMIT:
+        await interaction.response.send_message('Bạn đã hết "lượt dùng pokemon center" trong hôm nay.', ephemeral=True)
+        return
+
     healed_count = 0
     for pokemon in profile.party:
         if pokemon.current_hp < pokemon.max_hp:
             healed_count += 1
         pokemon.current_hp = pokemon.max_hp
 
+    profile.center_uses_count += 1
+    remaining = max(0, DAILY_CENTER_LIMIT - profile.center_uses_count)
+
     await asyncio.to_thread(bot.save_player, interaction.user.id)
 
     if healed_count == 0:
-        await interaction.response.send_message("Tất cả Pokémon trong party đã đầy HP sẵn rồi.", ephemeral=True)
+        await interaction.response.send_message(
+            f"Tất cả Pokémon trong party đã đầy HP sẵn rồi. Còn lại {remaining}/{DAILY_CENTER_LIMIT} lượt hôm nay.",
+            ephemeral=True,
+        )
         return
 
     await interaction.response.send_message(
-        f"Đã hồi máu tại Pokémon Center cho {healed_count}/{len(profile.party)} Pokémon trong party.",
+        f"Đã hồi máu tại Pokémon Center cho {healed_count}/{len(profile.party)} Pokémon trong party. Còn lại {remaining}/{DAILY_CENTER_LIMIT} lượt hôm nay.",
         ephemeral=True,
     )
 

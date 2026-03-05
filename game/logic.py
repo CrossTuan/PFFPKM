@@ -564,6 +564,8 @@ class PlayerProfile:
     gym_badges: dict[str, int] = field(default_factory=dict)
     gym_run: dict[str, Any] | None = None
     last_chat_happiness_at: int = 0
+    center_uses_date: str = ""
+    center_uses_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -576,6 +578,8 @@ class PlayerProfile:
             "gym_badges": self.gym_badges,
             "gym_run": self.gym_run,
             "last_chat_happiness_at": self.last_chat_happiness_at,
+            "center_uses_date": self.center_uses_date,
+            "center_uses_count": self.center_uses_count,
         }
 
     @classmethod
@@ -590,6 +594,8 @@ class PlayerProfile:
             gym_badges={k: int(v) for k, v in data.get("gym_badges", {}).items()},
             gym_run=data.get("gym_run") if isinstance(data.get("gym_run"), dict) else None,
             last_chat_happiness_at=int(data.get("last_chat_happiness_at", 0)),
+            center_uses_date=str(data.get("center_uses_date", "")),
+            center_uses_count=max(0, int(data.get("center_uses_count", 0))),
         )
 
 
