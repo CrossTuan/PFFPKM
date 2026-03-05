@@ -719,6 +719,13 @@ class Battle:
         self.game_data = game_data
         self.player = player
         self.wild = wild
+        self._victory_rewards_granted = False
+
+        # Defensive fix: some persisted/edge states can produce a fainted wild on entry.
+        self.wild.max_hp = max(1, int(getattr(self.wild, "max_hp", 1)))
+        if int(getattr(self.wild, "current_hp", 0)) <= 0:
+            self.wild.current_hp = self.wild.max_hp
+
         self.exp_multiplier = max(0.0, float(exp_multiplier))
         self.money_multiplier = max(0.0, float(money_multiplier))
         self.allow_catch = bool(allow_catch)
@@ -1031,7 +1038,10 @@ class Battle:
     def run_turn(self, player_move_index: int) -> TurnResult:
         if self.is_finished():
             if self.wild.current_hp <= 0:
-                return TurnResult("Trận đấu đã kết thúc. Pokémon hoang dã đã gục.", battle_over=True)
+                logs = ["Trận đấu đã kết thúc. Pokémon hoang dã đã gục."]
+                if (not self._victory_rewards_granted) and any(p.current_hp > 0 for p in self.player.party):
+                    self._grant_victory_rewards(self.player_active, logs)
+                return TurnResult("\n".join(logs), battle_over=True)
             return TurnResult("Trận đấu đã kết thúc. Đội của bạn đã hết sức chiến đấu.", battle_over=True)
 
         player_move_index = max(0, min(player_move_index, len(self.player_active.moves) - 1))
@@ -7480,6 +7490,9 @@ class Battle:
         return calculate_catch_chance(self, ball_name)
 
     def _grant_victory_rewards(self, winner: PokemonInstance, logs: list[str]) -> None:
+        if self._victory_rewards_granted:
+            return
+
         base_exp = self._calculate_exp_reward(self.wild)
         exp_gain = max(1, int(round(base_exp * getattr(self, "exp_multiplier", 1.0))))
         base_money = max(0, 5 * self.wild.level)
@@ -7511,6 +7524,7 @@ class Battle:
         logs.append(f"Bạn nhận {money_gain} PokéDollars.")
         if pay_day_gain > 0:
             logs.append(f"Trong đó có {pay_day_gain} PokéDollars từ Pay Day.")
+        self._victory_rewards_granted = True
 
     def _grant_ev_rewards(self, winner: PokemonInstance) -> list[str]:
         defeated_species = get_species_by_id(self.game_data, getattr(self.wild, "species_id", -1))
