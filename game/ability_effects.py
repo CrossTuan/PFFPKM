@@ -1947,34 +1947,56 @@ def punk_rock_multiplier(move, base_power, is_user):
 
 # Load abilities.json safely: only extract name, rating, num, flags
 import os, re
-ABILITIES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'abilities.json')
+from pathlib import Path
+
+
+def _resolve_abilities_path() -> Path | None:
+    env_path = os.getenv("ABILITIES_PATH", "").strip()
+    candidates: list[Path] = []
+    if env_path:
+        candidates.append(Path(env_path))
+
+    project_root = Path(__file__).resolve().parents[1]
+    candidates.append(project_root / "abilities.json")
+    candidates.append(project_root.parent / "abilities.json")
+
+    for path in candidates:
+        if path.exists() and path.is_file():
+            return path
+    return None
+
+
 ABILITIES = {}
-with open(ABILITIES_PATH, encoding='utf-8') as f:
-    raw = f.read()
-    # Remove comments and export
-    raw = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
-    raw = re.sub(r'export const Abilities:.*?=\s*', '', raw)
-    raw = raw.strip()
-    # Only keep main object content
-    start = raw.find('{')
-    end = raw.rfind('}')
-    raw = raw[start+1:end]
-    # Split by ability blocks
-    abilities = re.split(r'\n\s*([a-zA-Z0-9_]+):\s*{', '\n' + raw)
-    for i in range(1, len(abilities), 2):
-        key = abilities[i]
-        block = abilities[i+1]
-        # Extract fields
-        name = re.search(r'name:\s*"([^"]+)"', block)
-        rating = re.search(r'rating:\s*([\d\.]+)', block)
-        num = re.search(r'num:\s*(\d+)', block)
-        flags = re.search(r'flags:\s*({[^}]*})', block)
-        ABILITIES[key] = {
-            'name': name.group(1) if name else key,
-            'rating': float(rating.group(1)) if rating else None,
-            'num': int(num.group(1)) if num else None,
-            'flags': flags.group(1) if flags else '{}',
-        }
+_abilities_path = _resolve_abilities_path()
+if _abilities_path is not None:
+    with open(_abilities_path, encoding='utf-8') as f:
+        raw = f.read()
+        # Remove comments and export
+        raw = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+        raw = re.sub(r'export const Abilities:.*?=\s*', '', raw)
+        raw = raw.strip()
+        # Only keep main object content
+        start = raw.find('{')
+        end = raw.rfind('}')
+        raw = raw[start+1:end]
+        # Split by ability blocks
+        abilities = re.split(r'\n\s*([a-zA-Z0-9_]+):\s*{', '\n' + raw)
+        for i in range(1, len(abilities), 2):
+            key = abilities[i]
+            block = abilities[i+1]
+            # Extract fields
+            name = re.search(r'name:\s*"([^"]+)"', block)
+            rating = re.search(r'rating:\s*([\d\.]+)', block)
+            num = re.search(r'num:\s*(\d+)', block)
+            flags = re.search(r'flags:\s*({[^}]*})', block)
+            ABILITIES[key] = {
+                'name': name.group(1) if name else key,
+                'rating': float(rating.group(1)) if rating else None,
+                'num': int(num.group(1)) if num else None,
+                'flags': flags.group(1) if flags else '{}',
+            }
+else:
+    print("Warning: abilities.json not found. Continuing with empty ABILITIES.")
 
 # Map ability names to a stub effect function
 # (All abilities return 1.0/no effect by default, except Blaze/Intimidate for demo)
