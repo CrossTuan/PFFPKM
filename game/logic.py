@@ -2716,6 +2716,7 @@ class Battle:
                 self.wild_rollout_chain = 0
 
         effective_move = move
+        z_power_text = ""
         if move.name == "Judgment":
             plate_map = {
                 "flame plate": "Fire",
