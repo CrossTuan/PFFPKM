@@ -6,6 +6,7 @@ import os
 import random
 import re
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Optional
 
@@ -3464,6 +3465,27 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
+
+
+@bot.event
+async def on_disconnect():
+    print("[discord] Gateway disconnected.")
+
+
+@bot.event
+async def on_resumed():
+    print("[discord] Gateway resumed.")
+
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    print(f"[appcmd] Error in command execution: {error}")
+    traceback.print_exception(type(error), error, error.__traceback__)
+
+    if interaction.response.is_done():
+        await interaction.followup.send("Lệnh bị lỗi nội bộ. Hãy thử lại sau vài giây.", ephemeral=True)
+    else:
+        await interaction.response.send_message("Lệnh bị lỗi nội bộ. Hãy thử lại sau vài giây.", ephemeral=True)
 
 
 def main() -> None:

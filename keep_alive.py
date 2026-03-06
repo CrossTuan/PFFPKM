@@ -25,14 +25,16 @@ class _HealthHandler(BaseHTTPRequestHandler):
 def start_keep_alive() -> None:
     port_raw = os.getenv("PORT", "").strip()
     if not port_raw:
+        print("[health] PORT is not set; health server is disabled.")
         return
 
     try:
         port = int(port_raw)
     except ValueError:
+        print(f"[health] Invalid PORT value: {port_raw!r}; health server is disabled.")
         return
 
     server = HTTPServer(("0.0.0.0", port), _HealthHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f"Health server listening on 0.0.0.0:{port}")
+    print(f"[health] Health server listening on 0.0.0.0:{port}")
