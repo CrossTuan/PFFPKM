@@ -107,11 +107,15 @@ def create_player_store(file_path: Path):
         db_name = os.getenv("MONGODB_DB", "pffpkm").strip() or "pffpkm"
         collection_name = os.getenv("MONGODB_COLLECTION", "players").strip() or "players"
         try:
-            return MongoPlayerStore(mongo_uri, db_name=db_name, collection_name=collection_name)
+            store = MongoPlayerStore(mongo_uri, db_name=db_name, collection_name=collection_name)
+            print(f"[storage] Connected to MongoDB: db={db_name}, collection={collection_name}.")
+            return store
         except Exception as exc:
             print(
                 "[storage] Failed to connect to MongoDB "
                 f"({exc.__class__.__name__}: {exc}). "
                 f"Falling back to local JSON store at {file_path}."
             )
+    else:
+        print(f"[storage] MONGODB_URI is empty, using local JSON store at {file_path}.")
     return PlayerStore(file_path)
