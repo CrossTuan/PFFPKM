@@ -2825,7 +2825,32 @@ def battle_status_embed(profile: PlayerProfile, battle: Battle, title: str, turn
     embed.add_field(name="Poké Balls", value=ball_text[:1024], inline=False)
 
     if turn_text:
-        embed.add_field(name="Log", value=turn_text[:1024], inline=False)
+        def _chunk_log_text(text: str, limit: int = 1024) -> list[str]:
+            chunks: list[str] = []
+            current = ""
+            for raw_line in text.splitlines() or [text]:
+                line = raw_line or " "
+                candidate = line if not current else f"{current}\n{line}"
+                if len(candidate) <= limit:
+                    current = candidate
+                    continue
+
+                if current:
+                    chunks.append(current)
+                    current = ""
+
+                while len(line) > limit:
+                    chunks.append(line[: limit - 1] + "...")
+                    line = line[limit - 1 :]
+                current = line
+
+            if current:
+                chunks.append(current)
+            return chunks or ["(trống)"]
+
+        for idx, chunk in enumerate(_chunk_log_text(turn_text)[:4]):
+            field_name = "Log" if idx == 0 else f"Log ({idx + 1})"
+            embed.add_field(name=field_name, value=chunk, inline=False)
 
     return embed
 
